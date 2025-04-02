@@ -1,0 +1,4 @@
+.qodo
+virtualenv
+.env
+alembic.ini
