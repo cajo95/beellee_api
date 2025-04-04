@@ -1,13 +1,13 @@
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
-from models.models import Purchases, Users
+from models.models import Purchases, Items
 from dotenv import load_dotenv
 from requests import HTTPError
 from datetime import datetime
 from openai import OpenAI
 from db.db import engine
-#from fastapi import HTTPException IMPORTANTE MANEJAR LA EXCEPCIÓN HTTP DE LOS ENDPOINTS
+from fastapi import HTTPException, status
 #import numpy as np
 import requests
 import uuid
@@ -19,6 +19,9 @@ load_dotenv(".env")
 class purchases():
 
   def scanner_image(self, _base64_image):
+    global data_base64_image
+    data_base64_image = _base64_image 
+
     api_key=os.environ.get("OPENAI_API_KEY")
     #client = OpenAI(api_key)
     try:
@@ -76,64 +79,46 @@ class purchases():
       #print('Error:', e)
       raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
 
-  def save_purchase_data(self, json_purchese, db):
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    try:
-      #purchase = session.query(Purchases).filter(Purchases.purchese_code == purchese_code).first()
-      print(json_purchese)
-      # new_purchase = Purchases(
-      #   purchese_code=str(uuid.uuid4()),
-      #   establishment=json_purchese["establishment"],
-      #   total_invoice_value=json_purchese["total_invoice_value"],
-      #   items=json_purchese["items"],
-      #   created_at=datetime.now()
-      # )
-      return True
-    except Exception as e:
-      print('Error:', e)
-      raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
-    # finally:
-    #   session.close()
-
-
-  # def new_users(self, user_data, db):
-  #     try:
-  #         print(user_data)
-  #         new_user = Users(
-  #             user_code=user_data["user_id"],
-  #             user_name=user_data["username"],
-  #             name=user_data["name"],
-  #             surname=user_data["surname"],
-  #             identification=user_data["user_id"],
-  #             country=user_data["country"],
-  #             city=user_data["city"],
-  #             address=user_data.get("address", ''),
-  #             email=user_data["email"],
-  #             phone=user_data["phone"],
-  #             activity=user_data["activity"],
-  #             activity_type_id=user_data["type_activity"],
-  #             income_type_id=user_data["first_income"],
-  #             activated=user_data.get("activated", False)
-  #         )
-
-  #         db.add(new_user)
-  #         db.commit()
-  #         db.refresh(new_user)  # Refrescar para obtener el ID y otros campos generados
-  #         db.close()
-  #         print('prueba')
-  #         return new_user
-  #     except SQLAlchemyError as e:
-  #         db.rollback()  # Revertir la transacción en caso de error
-  #         print(f"Error al insertar el usuario: {e}")
-  #         return None
-
+  def save_purchase_data(self, json_purchase, db):
+      data_number_items = len(json_purchase['purchase_data']['items'])
+      try:
+          # Create new purchase record
+          new_purchase = Purchases(
+              user_code='81380774',
+              purchese_code=str(uuid.uuid4()),
+              number_items=data_number_items,
+              establishment=json_purchase['purchase_data']["establishment"],
+              type_id=8,
+              total_payment=json_purchase['purchase_data']["total_invoice_value"],
+              invoice_B64=data_base64_image
+          )
+          
+          db.add(new_purchase)
+          db.commit()
+          
+          # Add items with correct data structure access
+          for item in json_purchase['purchase_data']["items"]:
+              new_item = Items(
+                  purchese_code=new_purchase.purchese_code,
+                  name=item["name"],
+                  value=item["unit_price"],
+                  quantity=item["quantity"],
+                  type_id=1
+              )
+              db.add(new_item)
+          
+          db.commit()
+          db.refresh(new_purchase)
+          
+          return True
+      
+      except SQLAlchemyError as e:
+          db.rollback()
+          raise HTTPException(
+              status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+              detail=f"Database error: {str(e)}"
+          )
 # TODO: DESARROLLAR UN CONTADOR DE TOKKENS PARA QUE NO SEA UN NUMERO FIJO SINO QUE VAYA JUSTON CON LO QUE SE NECESITA (SUPER IMPORTANTE)
 # TODO: Tener en cuenta Casos especiales
 # TODO: Guardar imagen en base de datos como base64 para que el usuario tenga acceso a ella en cualquier momento.
 # TODO: Ver si se puede configuar el bot de telegram para que tome fotos de 512px x 512px.
-# TODO: Traajar en el control de errores http tanto en api como en bot.
-
-# NEW TODO:
-# TODO: Cambiar user_id de intero a string
-# TODO: Cambiar em item purchase_id por porchese_code o algo así: hacer un nuevo campo nuevo en purchase para relacionarlo con item

@@ -37,6 +37,7 @@ async def upload_image(imagen: Imagen, db: Session = Depends(get_db)):
 
 @router.post("/accepted-purchase/")
 async def save_accepted_purchase(data_purchase: dict, db: Session = Depends(get_db)):
+    print(data_purchase)
     try:
         purchase_data = purchases().save_purchase_data(data_purchase, db)
         return purchase_data
