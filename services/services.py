@@ -2,12 +2,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
 from models.models import Purchases, Items
+from fastapi import HTTPException, status
 from dotenv import load_dotenv
 from requests import HTTPError
 from datetime import datetime
 from openai import OpenAI
 from db.db import engine
-from fastapi import HTTPException, status
+import shortuuid 
 #import numpy as np
 import requests
 import uuid
@@ -82,36 +83,32 @@ class purchases():
   def save_purchase_data(self, json_purchase, db):
       data_number_items = len(json_purchase['purchase_data']['items'])
       try:
-          # Create new purchase record
-          new_purchase = Purchases(
-              user_code='81380774',
-              purchese_code=str(uuid.uuid4()),
-              number_items=data_number_items,
-              establishment=json_purchase['purchase_data']["establishment"],
-              type_id=8,
-              total_payment=json_purchase['purchase_data']["total_invoice_value"],
-              invoice_B64=data_base64_image
-          )
-          
-          db.add(new_purchase)
-          db.commit()
-          
-          # Add items with correct data structure access
-          for item in json_purchase['purchase_data']["items"]:
-              new_item = Items(
-                  purchese_code=new_purchase.purchese_code,
-                  name=item["name"],
-                  value=item["unit_price"],
-                  quantity=item["quantity"],
-                  type_id=1
-              )
-              db.add(new_item)
-          
-          db.commit()
-          db.refresh(new_purchase)
-          
-          return True
-      
+        new_purchase = Purchases(
+            user_code='0081380774',
+            purchase_code=str(shortuuid.ShortUUID(alphabet="0123456789").random(length=20)),
+            number_items=data_number_items,
+            establishment=json_purchase['purchase_data']["establishment"],
+            type_payment_id=1,
+            total_payment=json_purchase['purchase_data']["total_invoice_value"],
+            invoice_B64=data_base64_image
+        )
+        db.add(new_purchase)
+        db.commit()
+        
+        for item in json_purchase['purchase_data']["items"]:
+            new_item = Items(
+                purchase_code=new_purchase.purchase_code,
+                name=item["name"],
+                value=item["unit_price"],
+                quantity=item["quantity"],
+                type_id=1
+            )
+            db.add(new_item)
+        
+        db.commit()
+        db.refresh(new_purchase)
+        
+        return True
       except SQLAlchemyError as e:
           db.rollback()
           raise HTTPException(

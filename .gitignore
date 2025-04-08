@@ -1,4 +1,4 @@
 .qodo
-virtualenv
+myvenv
 .env
 alembic.ini
